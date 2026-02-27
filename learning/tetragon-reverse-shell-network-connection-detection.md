@@ -4,7 +4,7 @@
 
 本文档是「Tetragon 反弹 Shell 检测全流程深度分析」系列的第 2 篇（网络连接维度），覆盖通过网络连接监控检测反弹 Shell 外连行为的全链路分析。
 
-> **前置阅读**: 本文档假设读者已阅读 [Doc 0: 基础架构](tetragon-reverse-shell-detection-foundation.md)，了解 Kprobe 框架、Tail Call 管道、选择器编译机制和事件输出管道。本文将从网络维度特定的 Hook 点和数据结构开始分析。
+> **前置阅读**: 本文档假设读者已阅读 [基础架构](tetragon-reverse-shell-detection-foundation.md)，了解 Kprobe 框架、Tail Call 管道、选择器编译机制和事件输出管道。本文将从网络维度特定的 Hook 点和数据结构开始分析。
 
 **覆盖的反弹 Shell 类型**：所有类型 — 每种反弹 Shell 都需要建立网络连接，这使网络监控成为覆盖面最广的检测维度。
 
@@ -38,14 +38,14 @@ Tetragon 提供多个内核 Hook 点来监控网络连接：
 
 | Hook 点 | 层级 | 参数 | 优势 | 适用场景 |
 |---------|------|------|------|---------|
-| `tcp_connect` | 传输层函数 | `sock` | 高效、仅 TCP、包含完整五元组 | TCP ���连检测 |
+| `tcp_connect` | 传输层函数 | `sock` | 高效、仅 TCP、包含完整五元组 | TCP 外连检测 |
 | `tcp_close` | 传输层函数 | `sock` | 检测连接关闭 | 连接生命周期 |
 | `tcp_sendmsg` | 传输层函数 | `sock`, `size` | 检测数据传输量 | 数据泄露检测 |
 | `inet_csk_listen_start` | 传输层函数 | `sock` | 检测端口监听 | 正向绑定 Shell |
 | `security_socket_connect` | LSM Hook | `socket`, `sockaddr` | 全协议覆盖（TCP+UDP+...）| 最全面的检测 |
 | `sk_alloc` / `__sk_free` | Socket 生命周期 | `sock` (return) | TrackSock 机制 | Socket 关联跟踪 |
 
-### 1.3 网络参数与反�� Shell 特征
+### 1.3 网络参数与反弹 Shell 特征
 
 | 特征 | 正常连接 | 反弹 Shell 连接 |
 |------|---------|----------------|
